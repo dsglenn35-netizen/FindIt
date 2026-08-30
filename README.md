@@ -1,5 +1,7 @@
 # 放哪了（FindIt）
 
+[English](README_EN.md)
+
 ![Build](https://github.com/dsglenn35-netizen/FindIt/actions/workflows/build.yml/badge.svg)
 
 <p align="center">
