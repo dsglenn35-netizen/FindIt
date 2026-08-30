@@ -1,6 +1,9 @@
 # Where Did I Put It (FindIt)
 
 ![Build](https://github.com/dsglenn35-netizen/FindIt/actions/workflows/build.yml/badge.svg)
+![License](https://img.shields.io/github/license/dsglenn35-netizen/FindIt)
+![Release](https://img.shields.io/github/v/release/dsglenn35-netizen/FindIt)
+![Stars](https://img.shields.io/github/stars/dsglenn35-netizen/FindIt)
 
 <p align="center">
   <a href="https://github.com/dsglenn35-netizen/FindIt/releases"><strong>⬇️ Download the latest APK (GitHub Releases)</strong></a>
