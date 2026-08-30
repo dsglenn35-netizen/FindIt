@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">放哪了</string>
+    <string name="app_slogan">小零碎放哪了，一查就知道</string>
+    <string name="search_hint">搜索物品或位置（支持拼音，如 jd）…</string>
+    <string name="section_add">📦 放了个东西？记一笔</string>
+    <string name="hint_name">物品名称（如：剪刀）</string>
+    <string name="hint_location">存放位置（如：客厅茶几抽屉）</string>
+    <string name="btn_camera">📷 拍照</string>
+    <string name="btn_save">💾 保存</string>
+    <string name="empty_hint">还没有记录\n放东西时顺手记一笔，下次就不怕找不到了</string>
+    <string name="tab_recent">最近</string>
+    <string name="tab_group">按位置</string>
+    <string name="tab_stats">统计</string>
+</resources>
