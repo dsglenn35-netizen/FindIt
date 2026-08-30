@@ -31,10 +31,14 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
-      # 若配置了签名密钥 Secret，则启用正式签名；否则 release 自动退回 debug 签名
+      # 若在仓库 Settings→Secrets 配置了 KEYSTORE_BASE64、KEYSTORE_PASSWORD，
+      # 则启用正式签名；否则 release 自动退回 debug 签名（可直接安装自用）
       - name: Configure release signing
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "未配置签名 Secret，本次使用 debug 签名"
+            exit 0
+          fi
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > findit.jks
           cat > keystore.properties <<EOF
           storeFile=../findit.jks
@@ -42,7 +46,7 @@ jobs:
           keyAlias=findit
           keyPassword=${{ secrets.KEYSTORE_PASSWORD }}
           EOF
-          echo "启用正式 release 签名"
+          echo "已启用正式 release 签名"
 
       - name: Build release APK
         run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
