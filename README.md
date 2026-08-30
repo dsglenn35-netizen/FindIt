@@ -2,6 +2,10 @@
 
 ![Build](https://github.com/dsglenn35-netizen/FindIt/actions/workflows/build.yml/badge.svg)
 
+<p align="center">
+  <a href="https://github.com/dsglenn35-netizen/FindIt/releases"><strong>⬇️ 下载最新版 APK（GitHub Releases）</strong></a>
+</p>
+
 家中小零碎放哪了、一查就知道的 Android 小工具。纯本地运行，不需要联网，数据存在手机里。
 
 <p align="center">

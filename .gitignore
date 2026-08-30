@@ -16,6 +16,9 @@ keystore.properties
 *.jks
 *.keystore
 
+# 密钥备份（务必排除）
+backup/
+
 # 系统文件
 .DS_Store
 Thumbs.db
