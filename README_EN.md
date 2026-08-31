@@ -31,6 +31,7 @@ An Android utility for remembering where you put small household items. Fully of
 - 💾 **Backup export/import**: pack records + photos into a zip, save to chat apps or cloud drives; export before switching phones or uninstalling, restore anytime
 - ⚙️ **Custom quick locations**: long-press a location chip to rename/delete; tap "+ Add" to create your own
 - 🌙 **Dark mode**: follows the system automatically
+- 🔗 **LAN two-device sync** (v2.0): two phones/tablets on the same Wi-Fi can connect by scanning a QR code and keep records, locations and photos in sync (incremental sync + automatic conflict resolution + on-demand photo transfer)
 
 ## Installation (Android)
 

@@ -1,7 +1,9 @@
 package com.home.findit
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import java.io.File
 
 /** 图片工具：按需采样加载，避免大图撑爆内存 */
 object PhotoUtils {
@@ -29,5 +31,13 @@ object PhotoUtils {
         } catch (e: Exception) {
             null
         }
+    }
+}
+
+/** 照片文件名 → 实际文件（照片目录随设备迁移，文件名跨设备一致） */
+object PhotoFiles {
+    fun resolve(context: Context, name: String?): File? {
+        if (name.isNullOrBlank()) return null
+        return File(context.filesDir, "photos").resolve(name)
     }
 }

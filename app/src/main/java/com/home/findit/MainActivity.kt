@@ -8,7 +8,10 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.speech.RecognizerIntent
 import android.text.Editable
@@ -29,6 +32,9 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.google.zxing.integration.android.IntentIntegrator
+import com.google.zxing.integration.android.IntentResult
+import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -46,12 +52,12 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * 「放哪了」主界面 v1.1
- * 最近 / 按位置 / 统计 三个页签；语音输入；拍照；备份导入导出；移动历史；分享；大图查看
+ * 「放哪了」主界面 v2.0
+ * 最近 / 按位置 / 统计 / 同步 四个页签；语音输入；拍照；备份导入导出；移动历史；分享；大图查看；局域网双设备同步
  */
 class MainActivity : Activity() {
 
-    private enum class Tab { RECENT, GROUP, STATS }
+    private enum class Tab { RECENT, GROUP, STATS, SYNC }
 
     private lateinit var db: ItemDb
 
@@ -65,10 +71,22 @@ class MainActivity : Activity() {
     private lateinit var emptyView: TextView
     private lateinit var statsView: android.widget.ScrollView
     private lateinit var statsContent: LinearLayout
+    private lateinit var syncView: android.widget.ScrollView
 
     private lateinit var tabRecent: Button
     private lateinit var tabGroup: Button
     private lateinit var tabStats: Button
+    private lateinit var tabSync: Button
+
+    // 同步页控件
+    private lateinit var syncDeviceName: EditText
+    private lateinit var btnHostToggle: Button
+    private lateinit var hostInfoText: TextView
+    private lateinit var qrImage: ImageView
+    private lateinit var hostInput: EditText
+    private lateinit var pinInput: EditText
+    private lateinit var btnSyncNow: Button
+    private lateinit var syncStatusText: TextView
 
     private var items: List<Item> = emptyList()
     private var selectedTab = Tab.RECENT
@@ -80,11 +98,26 @@ class MainActivity : Activity() {
     private var voiceTarget: EditText? = null
     private var previewingThumb: Bitmap? = null
 
+    private var syncServer: SyncServer? = null
+    private var appResumed = false
+    private val syncHandler = Handler(Looper.getMainLooper())
+    private val syncRunnable = object : Runnable {
+        override fun run() {
+            if (appResumed && SyncPrefs.hostUrl(this@MainActivity) != null) {
+                SyncEngine.doSync(this@MainActivity, db) { outcome ->
+                    if (outcome.ok) updateSyncStatus(outcome.message)
+                }
+            }
+            syncHandler.postDelayed(this, 30_000)
+        }
+    }
+
     companion object {
         private const val REQ_CAMERA = 1001
         private const val REQ_SPEECH = 1002
         private const val REQ_IMPORT = 1003
         private const val AUTHORITY = "com.home.findit.fileprovider"
+        private const val SYNC_PORT = 8888
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,9 +135,19 @@ class MainActivity : Activity() {
         emptyView = findViewById(R.id.emptyView)
         statsView = findViewById(R.id.statsView)
         statsContent = findViewById(R.id.statsContent)
+        syncView = findViewById(R.id.syncView)
         tabRecent = findViewById(R.id.tabRecent)
         tabGroup = findViewById(R.id.tabGroup)
         tabStats = findViewById(R.id.tabStats)
+        tabSync = findViewById(R.id.tabSync)
+        syncDeviceName = findViewById(R.id.syncDeviceName)
+        btnHostToggle = findViewById(R.id.btnHostToggle)
+        hostInfoText = findViewById(R.id.hostInfoText)
+        qrImage = findViewById(R.id.qrImage)
+        hostInput = findViewById(R.id.hostInput)
+        pinInput = findViewById(R.id.pinInput)
+        btnSyncNow = findViewById(R.id.btnSyncNow)
+        syncStatusText = findViewById(R.id.syncStatusText)
 
         findViewById<Button>(R.id.btnCamera).setOnClickListener { startCamera() }
         findViewById<Button>(R.id.btnSave).setOnClickListener { onSave() }
@@ -117,10 +160,45 @@ class MainActivity : Activity() {
         tabRecent.setOnClickListener { setTab(Tab.RECENT) }
         tabGroup.setOnClickListener { setTab(Tab.GROUP) }
         tabStats.setOnClickListener { setTab(Tab.STATS) }
+        tabSync.setOnClickListener { setTab(Tab.SYNC) }
+
+        // 同步页
+        syncDeviceName.setText(SyncPrefs.deviceName(this))
+        findViewById<Button>(R.id.btnSaveDeviceName).setOnClickListener {
+            val n = syncDeviceName.text.toString().trim()
+            if (n.isEmpty()) {
+                toast("设备名不能为空")
+            } else {
+                SyncPrefs.setDeviceName(this, n)
+                toast("设备名已保存：$n")
+            }
+        }
+        btnHostToggle.setOnClickListener { toggleHost() }
+        findViewById<Button>(R.id.btnScanQr).setOnClickListener { scanQr() }
+        findViewById<Button>(R.id.btnConnect).setOnClickListener { connectHost() }
+        btnSyncNow.setOnClickListener { doSyncWithFeedback("正在同步…") }
 
         buildChips()
         setupSearch()
         setTab(Tab.RECENT)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        appResumed = true
+        syncHandler.postDelayed(syncRunnable, 30_000)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        appResumed = false
+        syncHandler.removeCallbacks(syncRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        syncHandler.removeCallbacks(syncRunnable)
+        stopHost()
     }
 
     // ---------- 页签 ----------
@@ -130,6 +208,7 @@ class MainActivity : Activity() {
         tabRecent.isSelected = tab == Tab.RECENT
         tabGroup.isSelected = tab == Tab.GROUP
         tabStats.isSelected = tab == Tab.STATS
+        tabSync.isSelected = tab == Tab.SYNC
         refresh()
     }
 
@@ -140,7 +219,6 @@ class MainActivity : Activity() {
         for (loc in db.getLocations()) {
             chipsContainer.addView(makeChip(loc))
         }
-        // 添加按钮
         val plus = TextView(this).apply {
             text = "+ 添加"
             setTextSize(13f)
@@ -260,7 +338,7 @@ class MainActivity : Activity() {
             .show()
     }
 
-    // ---------- 搜索（拼音/模糊） ----------
+    // ---------- 搜索 ----------
 
     private fun setupSearch() {
         searchInput.addTextChangedListener(object : TextWatcher {
@@ -277,9 +355,11 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = searchInput.text.toString().trim()
         items = if (q.isEmpty()) db.queryAll() else db.search(q)
-        val isStats = selectedTab == Tab.STATS
-        listView.visibility = if (isStats) View.GONE else View.VISIBLE
-        statsView.visibility = if (isStats) View.VISIBLE else View.GONE
+
+        val showList = selectedTab == Tab.RECENT || selectedTab == Tab.GROUP
+        listView.visibility = if (showList) View.VISIBLE else View.GONE
+        statsView.visibility = if (selectedTab == Tab.STATS) View.VISIBLE else View.GONE
+        syncView.visibility = if (selectedTab == Tab.SYNC) View.VISIBLE else View.GONE
 
         when (selectedTab) {
             Tab.RECENT -> {
@@ -301,6 +381,11 @@ class MainActivity : Activity() {
             Tab.STATS -> {
                 buildStats(items)
                 emptyView.visibility = View.GONE
+                countText.text = "统计"
+            }
+            Tab.SYNC -> {
+                emptyView.visibility = View.GONE
+                countText.text = "多设备同步"
             }
         }
     }
@@ -589,7 +674,6 @@ class MainActivity : Activity() {
     private fun restoreBackup(zipFile: File): Boolean {
         return try {
             val photosDir = File(filesDir, "photos").apply { mkdirs() }
-            // 清空旧照片，实现真正的整体恢复
             photosDir.listFiles()?.forEach { it.delete() }
             val photoMap = HashMap<String, File>()
             var jsonStr: String? = null
@@ -626,12 +710,12 @@ class MainActivity : Activity() {
             append("【${item.name}】放在「${if (item.location.isBlank()) "未记录" else item.location}」\n")
             append("存放时间：${formatTime(item.createdAt)}")
         }
-        val photo = item.photo
         try {
-            val intent = if (photo != null && File(photo).exists()) {
+            val photoFile = PhotoFiles.resolve(this, item.photo)
+            val intent = if (photoFile != null && photoFile.exists()) {
                 Intent(Intent.ACTION_SEND).apply {
                     type = "image/jpeg"
-                    putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(this@MainActivity, AUTHORITY, File(photo)))
+                    putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(this@MainActivity, AUTHORITY, photoFile))
                     putExtra(Intent.EXTRA_TEXT, text)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
@@ -650,8 +734,8 @@ class MainActivity : Activity() {
     // ---------- 大图查看 ----------
 
     private fun showItemPhoto(item: Item) {
-        val photo = item.photo
-        if (photo == null || !File(photo).exists()) {
+        val file = PhotoFiles.resolve(this, item.photo)
+        if (file == null || !file.exists()) {
             toast("该记录没有照片")
             return
         }
@@ -661,7 +745,7 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.BLACK)
             setOnClickListener { dialog.dismiss() }
         }
-        val bmp = PhotoUtils.loadFull(photo)
+        val bmp = PhotoUtils.loadFull(file.absolutePath)
         if (bmp != null) img.setImageBitmap(bmp)
         dialog.setContentView(img)
         dialog.show()
@@ -681,9 +765,9 @@ class MainActivity : Activity() {
 
         name.setText(item.name)
         loc.setText(item.location)
-        val p = item.photo
-        if (p != null && File(p).exists()) {
-            photo.setImageBitmap(PhotoUtils.loadThumb(p, 128))
+        val photoFile = PhotoFiles.resolve(this, item.photo)
+        if (photoFile != null && photoFile.exists()) {
+            photo.setImageBitmap(PhotoUtils.loadThumb(photoFile.absolutePath, 128))
         } else {
             photo.setImageResource(R.drawable.ic_placeholder)
         }
@@ -725,10 +809,9 @@ class MainActivity : Activity() {
     private fun confirmDelete(item: Item) {
         AlertDialog.Builder(this)
             .setTitle("删除记录")
-            .setMessage("确定删除「${item.name}」吗？")
+            .setMessage("确定删除「${item.name}」吗？\n（已同步到其他设备的话，下次同步也会一并删除）")
             .setPositiveButton("删除") { _, _ ->
                 db.delete(item.id)
-                item.photo?.let { File(it).delete() }
                 refresh()
                 toast("已删除")
             }
@@ -736,11 +819,135 @@ class MainActivity : Activity() {
             .show()
     }
 
+    // ---------- 同步（主机/客户端） ----------
+
+    private fun toggleHost() {
+        if (syncServer != null) {
+            stopHost()
+            return
+        }
+        val server = SyncServer(this, db, SYNC_PORT)
+        try {
+            server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
+            syncServer = server
+            updateHostUi(true)
+            toast("主机已开启，让另一台设备扫码连接")
+        } catch (e: Exception) {
+            toast("启动主机失败：${e.message}")
+        }
+    }
+
+    private fun stopHost() {
+        syncServer?.stop()
+        syncServer = null
+        updateHostUi(false)
+    }
+
+    private fun updateHostUi(on: Boolean) {
+        if (on) {
+            btnHostToggle.text = getString(R.string.sync_host_stop)
+            val ip = localIp() ?: "未知IP"
+            val pin = syncServer?.pin ?: ""
+            hostInfoText.text = "地址：http://$ip:$SYNC_PORT\nPIN：$pin"
+            val qrContent = "findit://sync?host=$ip&port=$SYNC_PORT&pin=$pin"
+            val bmp = QrUtils.generate(qrContent, 512)
+            if (bmp != null) {
+                qrImage.setImageBitmap(bmp)
+                qrImage.visibility = View.VISIBLE
+            }
+        } else {
+            btnHostToggle.text = getString(R.string.sync_host_start)
+            hostInfoText.text = getString(R.string.sync_host_off)
+            qrImage.setImageDrawable(null)
+            qrImage.visibility = View.GONE
+        }
+    }
+
+    private fun localIp(): String? {
+        return try {
+            val wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+            val ip = wm.connectionInfo.ipAddress
+            if (ip == 0) null else String.format(
+                Locale.US, "%d.%d.%d.%d",
+                ip and 0xff, (ip shr 8) and 0xff, (ip shr 16) and 0xff, (ip shr 24) and 0xff
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun scanQr() {
+        try {
+            IntentIntegrator(this).initiateScan()
+        } catch (e: Exception) {
+            toast("无法启动扫码：${e.message}")
+        }
+    }
+
+    private fun parseSyncQr(content: String): Boolean {
+        return try {
+            val uri = Uri.parse(content)
+            if (uri.scheme != "findit") return false
+            val host = uri.getQueryParameter("host") ?: return false
+            val port = uri.getQueryParameter("port") ?: "$SYNC_PORT"
+            val pin = uri.getQueryParameter("pin") ?: ""
+            hostInput.setText("http://$host:$port")
+            pinInput.setText(pin)
+            connectHost()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun connectHost() {
+        var url = hostInput.text.toString().trim()
+        val pin = pinInput.text.toString().trim()
+        if (url.isEmpty()) {
+            toast("请输入主机地址")
+            return
+        }
+        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "http://$url"
+        if (pin.isEmpty()) {
+            toast("请输入 PIN")
+            return
+        }
+        SyncPrefs.setHost(this, url, pin, null)
+        SyncPrefs.setLastSyncAt(this, 0L)
+        doSyncWithFeedback("正在连接主机并同步…")
+    }
+
+    private fun doSyncWithFeedback(loadingMsg: String) {
+        syncStatusText.text = loadingMsg
+        SyncEngine.doSync(this, db) { outcome ->
+            updateSyncStatus(outcome.message)
+            if (outcome.ok) {
+                refresh()
+                toast(outcome.message)
+            }
+        }
+    }
+
+    private fun updateSyncStatus(msg: String) {
+        syncStatusText.text = msg
+    }
+
     // ---------- 结果回调 ----------
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
+        // zxing 扫码结果
+        val scanResult: IntentResult? = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+        if (scanResult != null) {
+            val content = scanResult.contents
+            if (content != null && !parseSyncQr(content)) {
+                toast("不是有效的同步二维码")
+            }
+            return
+        }
+
         when (requestCode) {
             REQ_CAMERA -> handleCameraResult(resultCode, data)
             REQ_SPEECH -> handleSpeechResult(resultCode, data)
@@ -776,8 +983,9 @@ class MainActivity : Activity() {
                     val item = items.firstOrNull { it.id == editing }
                     if (item != null) {
                         db.update(item.id, item.name, item.location, saved)
-                        item.photo?.let { File(it).delete() }
-                        editPhotoView?.setImageBitmap(PhotoUtils.loadThumb(saved, 128))
+                        PhotoFiles.resolve(this, item.photo)?.delete()
+                        editPhotoView?.setImageBitmap(PhotoUtils.loadThumb(
+                            PhotoFiles.resolve(this, saved)?.absolutePath ?: "", 128))
                         refresh()
                         toast("照片已更新")
                     }
@@ -799,7 +1007,7 @@ class MainActivity : Activity() {
             val dir = File(filesDir, "photos").apply { mkdirs() }
             val dest = File(dir, "photo_${System.currentTimeMillis()}.jpg")
             src.copyTo(dest, overwrite = true)
-            dest.absolutePath
+            dest.name
         } catch (e: Exception) {
             null
         }
@@ -813,7 +1021,7 @@ class MainActivity : Activity() {
             FileOutputStream(dest).use { out ->
                 bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
             }
-            dest.absolutePath
+            dest.name
         } catch (e: Exception) {
             null
         } finally {
@@ -823,7 +1031,8 @@ class MainActivity : Activity() {
 
     private fun showPreview(path: String) {
         previewingThumb?.recycle()
-        previewingThumb = PhotoUtils.loadThumb(path, 128)
+        val file = PhotoFiles.resolve(this, path)
+        previewingThumb = if (file != null) PhotoUtils.loadThumb(file.absolutePath, 128) else null
         previewingThumb?.let { photoPreview.setImageBitmap(it) }
         photoPreview.visibility = View.VISIBLE
     }

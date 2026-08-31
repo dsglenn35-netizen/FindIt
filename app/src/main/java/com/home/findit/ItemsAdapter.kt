@@ -8,7 +8,6 @@ import android.widget.BaseAdapter
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,9 +35,9 @@ object RowBinder {
         time.text = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
             .format(Date(item.createdAt))
 
-        val photo = item.photo
-        if (photo != null && File(photo).exists()) {
-            thumb.setImageBitmap(PhotoUtils.loadThumb(photo))
+        val photoFile = PhotoFiles.resolve(context, item.photo)
+        if (photoFile != null && photoFile.exists()) {
+            thumb.setImageBitmap(PhotoUtils.loadThumb(photoFile.absolutePath))
         } else {
             thumb.setImageResource(R.drawable.ic_placeholder)
         }

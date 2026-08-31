@@ -22,8 +22,8 @@ android {
         applicationId = "com.home.findit"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "2.0"
     }
 
     signingConfigs {
@@ -62,4 +62,7 @@ android {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.pinyin4j)
+    implementation(libs.nanohttpd)
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.embedded)
 }

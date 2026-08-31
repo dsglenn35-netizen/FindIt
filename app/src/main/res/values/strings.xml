@@ -12,4 +12,21 @@
     <string name="tab_recent">最近</string>
     <string name="tab_group">按位置</string>
     <string name="tab_stats">统计</string>
+    <string name="tab_sync">同步</string>
+
+    <!-- 同步页 -->
+    <string name="sync_section_device">📱 本机设备</string>
+    <string name="sync_save">保存</string>
+    <string name="sync_section_host">🖥️ 同步主机（让别的设备连我）</string>
+    <string name="sync_host_hint">开启后同一 WiFi 下的另一台「放哪了」扫下面的二维码即可连接</string>
+    <string name="sync_host_start">开启主机模式</string>
+    <string name="sync_host_stop">关闭主机模式</string>
+    <string name="sync_host_off">主机未开启</string>
+    <string name="sync_section_client">🔗 连接其他设备</string>
+    <string name="sync_scan">📷 扫码连接</string>
+    <string name="sync_connect">连接</string>
+    <string name="sync_section_sync">🔄 同步</string>
+    <string name="sync_now">立即同步</string>
+    <string name="sync_status_idle">尚未同步</string>
+    <string name="sync_connected">已连接主机：%1$s（%2$s）</string>
 </resources>
