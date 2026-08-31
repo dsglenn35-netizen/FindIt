@@ -87,4 +87,4 @@ zip 内含 `findit.json`（schema=1，含 locations/items/moves）+ `photos/` �
 
 ## 开源
 
-MIT License，可自由使用、修改、商用。欢迎 Star / Issue / PR。
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)：可自由使用、修改、分发，**禁止商用**（个人/家庭/学习/公益等非商业用途不受限）。欢迎 Star / Issue / PR。

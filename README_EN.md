@@ -92,4 +92,4 @@ The zip contains `findit.json` (schema=1, with locations/items/moves) plus a `ph
 
 ## License
 
-MIT License — free to use, modify, and use commercially. Stars / Issues / PRs are welcome.
+[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) — free to use, modify and distribute, but **commercial use is not permitted** (personal, family, educational and non-profit use is allowed). Stars / Issues / PRs are welcome.
