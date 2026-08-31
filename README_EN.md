@@ -1,7 +1,7 @@
 # Where Did I Put It (FindIt)
 
 ![Build](https://github.com/dsglenn35-netizen/FindIt/actions/workflows/build.yml/badge.svg)
-![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue)
+![License](https://img.shields.io/github/license/dsglenn35-netizen/FindIt)
 ![Release](https://img.shields.io/github/v/release/dsglenn35-netizen/FindIt)
 ![Stars](https://img.shields.io/github/stars/dsglenn35-netizen/FindIt)
 
@@ -14,7 +14,8 @@
 An Android utility for remembering where you put small household items. Fully offline — no network required, no permissions needed, and all data stays on your phone.
 
 <p align="center">
-  <img src="app.jpg" alt="FindIt screenshot" width="320" />
+  <img src="app2.0.jpg" alt="FindIt v2.0 sync screen" width="320" />
+  <img src="app.jpg" alt="FindIt main screen" width="320" />
 </p>
 
 ## Features
@@ -92,4 +93,4 @@ The zip contains `findit.json` (schema=1, with locations/items/moves) plus a `ph
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0) — free to use, modify and distribute, but **commercial use is not permitted** (personal, family, educational and non-profit use is allowed). Stars / Issues / PRs are welcome.
+[Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/) — free to use, modify and distribute, but **commercial use is not permitted** (personal, family, educational and non-profit use is allowed). Stars / Issues / PRs are welcome.

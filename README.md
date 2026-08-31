@@ -3,7 +3,7 @@
 [English](README_EN.md)
 
 ![Build](https://github.com/dsglenn35-netizen/FindIt/actions/workflows/build.yml/badge.svg)
-![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue)
+![License](https://img.shields.io/github/license/dsglenn35-netizen/FindIt)
 ![Release](https://img.shields.io/github/v/release/dsglenn35-netizen/FindIt)
 ![Stars](https://img.shields.io/github/stars/dsglenn35-netizen/FindIt)
 
@@ -14,6 +14,7 @@
 家中小零碎放哪了、一查就知道的 Android 小工具。纯本地运行，不需要联网，数据存在手机里。
 
 <p align="center">
+  <img src="app2.0.jpg" alt="放哪了 v2.0 同步界面" width="320" />
   <img src="app.jpg" alt="放哪了 界面" width="320" />
 </p>
 
@@ -87,4 +88,4 @@ zip 内含 `findit.json`（schema=1，含 locations/items/moves）+ `photos/` �
 
 ## 开源
 
-[PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0)：可自由使用、修改、分发，**禁止商用**（个人/家庭/学习/公益等非商业用途不受限）。欢迎 Star / Issue / PR。
+[Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/)：可自由使用、修改、分发，**禁止商用**（个人/家庭/学习/公益等非商业用途不受限）。欢迎 Star / Issue / PR。

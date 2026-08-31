@@ -20,6 +20,7 @@
 - 数据库升级至 v3：新增 `updated_at` / `deleted`（软删除墓碑）/ `device_id` / `remote_id` 列，自动迁移
 - 照片改为文件名存储（跨设备一致），老数据自动转换
 - 新增依赖：NanoHTTPD（内置 HTTP 服务）、zxing core（二维码生成）、zxing-android-embedded（扫码）
+- 许可证由 MIT 改为 **CC BY-NC 4.0（禁止商用）**
 
 ## [1.1] - 2026-08-30
 
