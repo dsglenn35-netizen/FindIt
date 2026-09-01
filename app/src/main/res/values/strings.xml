@@ -29,4 +29,18 @@
     <string name="sync_now">立即同步</string>
     <string name="sync_status_idle">尚未同步</string>
     <string name="sync_connected">已连接主机：%1$s（%2$s）</string>
+
+    <!-- 同步页输入提示 -->
+    <string name="sync_hint_device_name">如：客厅手机</string>
+    <string name="sync_hint_host">主机地址，如 http://192.168.1.5:8888</string>
+    <string name="sync_hint_pin">PIN（4 位数字）</string>
+
+    <!-- 主机前台服务通知 -->
+    <string name="sync_notif_channel">同步主机</string>
+    <string name="sync_notif_title">放哪了 · 同步主机运行中</string>
+    <string name="sync_notif_text">%1$s · PIN %2$s</string>
+    <string name="sync_notif_stop">停止主机</string>
+
+    <!-- 编辑对话框 -->
+    <string name="btn_retake">📷 重拍照片</string>
 </resources>

@@ -9,6 +9,8 @@
     <color name="divider">#E0E0E0</color>
     <color name="text_primary">#212121</color>
     <color name="text_secondary">#757575</color>
+    <color name="text_on_primary">#FFFFFF</color>
+    <color name="text_on_primary_soft">#CCFFFFFF</color>
     <color name="chip_text">#3F51B5</color>
     <color name="input_bg">#F0F1F5</color>
     <color name="input_stroke">#D6D8E0</color>

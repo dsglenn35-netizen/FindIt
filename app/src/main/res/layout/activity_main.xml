@@ -27,7 +27,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/app_name"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/text_on_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -35,7 +35,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/app_slogan"
-                android:textColor="#CCFFFFFF"
+                android:textColor="@color/text_on_primary_soft"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -44,7 +44,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="4dp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/text_on_primary"
             android:textSize="13sp" />
 
         <ImageButton
@@ -291,7 +291,7 @@
                 android:paddingEnd="20dp"
                 android:text="@string/btn_save"
                 android:textAllCaps="false"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/text_on_primary"
                 android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
@@ -369,7 +369,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:background="@drawable/bg_input"
-                    android:hint="如：客厅手机"
+                    android:hint="@string/sync_hint_device_name"
                     android:importantForAutofill="no"
                     android:maxLines="1"
                     android:padding="10dp"
@@ -386,7 +386,7 @@
                     android:paddingEnd="16dp"
                     android:text="@string/sync_save"
                     android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/text_on_primary"
                     android:textSize="13sp" />
             </LinearLayout>
 
@@ -416,7 +416,7 @@
                 android:background="@drawable/bg_button_primary"
                 android:text="@string/sync_host_start"
                 android:textAllCaps="false"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/text_on_primary"
                 android:textSize="14sp" />
 
             <TextView
@@ -456,7 +456,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/bg_input"
-                android:hint="主机地址，如 http://192.168.1.5:8888"
+                android:hint="@string/sync_hint_host"
                 android:importantForAutofill="no"
                 android:inputType="textUri"
                 android:maxLines="1"
@@ -469,7 +469,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/bg_input"
-                android:hint="PIN（4 位数字）"
+                android:hint="@string/sync_hint_pin"
                 android:importantForAutofill="no"
                 android:inputType="number"
                 android:maxLength="4"
@@ -505,7 +505,7 @@
                     android:minWidth="0dp"
                     android:text="@string/sync_connect"
                     android:textAllCaps="false"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/text_on_primary"
                     android:textSize="14sp" />
             </LinearLayout>
 
@@ -527,7 +527,7 @@
                 android:background="@drawable/bg_button_primary"
                 android:text="@string/sync_now"
                 android:textAllCaps="false"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/text_on_primary"
                 android:textSize="14sp" />
 
             <TextView

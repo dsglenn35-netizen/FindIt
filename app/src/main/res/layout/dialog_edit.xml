@@ -60,7 +60,7 @@
         android:minWidth="0dp"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:text="📷 重拍照片"
+        android:text="@string/btn_retake"
         android:textAllCaps="false"
         android:textColor="@color/primary"
         android:textSize="13sp" />

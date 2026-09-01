@@ -371,22 +371,6 @@ class ItemDb(context: Context) : SQLiteOpenHelper(context, "findit.db", null, 3)
         return SyncResult(applied, conflicts)
     }
 
-    /** 清理 30 天前的删除墓碑及其照片 */
-    fun purgeTombstones(before: Long) {
-        val victims = ArrayList<Pair<Long, String?>>()
-        readableDatabase.rawQuery(
-            "SELECT id, photo FROM items WHERE deleted=1 AND updated_at < ?",
-            arrayOf(before.toString())
-        ).use {
-            while (it.moveToNext()) victims.add(it.getLong(0) to it.getString(1))
-        }
-        for ((id, photo) in victims) {
-            photo?.let { PhotoFiles.resolve(appContext, it)?.delete() }
-            writableDatabase.delete("items", "id=?", arrayOf(id.toString()))
-            writableDatabase.delete("moves", "item_id=?", arrayOf(id.toString()))
-        }
-    }
-
     // ---------- 备份恢复 ----------
 
     /** 用备份 JSON 整体替换当前数据（清空后重灌） */

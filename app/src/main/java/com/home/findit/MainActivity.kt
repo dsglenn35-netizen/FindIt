@@ -5,10 +5,11 @@ import android.app.AlertDialog
 import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
-import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,10 +32,10 @@ import android.widget.ListView
 import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
-import fi.iki.elonen.NanoHTTPD
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -98,7 +99,6 @@ class MainActivity : Activity() {
     private var voiceTarget: EditText? = null
     private var previewingThumb: Bitmap? = null
 
-    private var syncServer: SyncServer? = null
     private var appResumed = false
     private val syncHandler = Handler(Looper.getMainLooper())
     private val syncRunnable = object : Runnable {
@@ -116,6 +116,7 @@ class MainActivity : Activity() {
         private const val REQ_CAMERA = 1001
         private const val REQ_SPEECH = 1002
         private const val REQ_IMPORT = 1003
+        private const val REQ_NOTIF = 1004
         private const val AUTHORITY = "com.home.findit.fileprovider"
         private const val SYNC_PORT = 8888
     }
@@ -186,6 +187,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         appResumed = true
+        updateHostUi() // 反映前台服务实际运行状态
         syncHandler.postDelayed(syncRunnable, 30_000)
     }
 
@@ -198,7 +200,8 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         syncHandler.removeCallbacks(syncRunnable)
-        stopHost()
+        // 注意：不在这里停止主机——主机由 SyncHostService 前台服务持有，
+        // 退出界面后继续在后台运行，用户可在同步页或通知栏停止。
     }
 
     // ---------- 页签 ----------
@@ -224,7 +227,7 @@ class MainActivity : Activity() {
             setTextSize(13f)
             setTextColor(getColor(R.color.chip_text))
             setBackgroundResource(R.drawable.bg_chip_dashed)
-            setPadding(dp(14), dp(7), dp(14), dp(7))
+            setPadding(dp(14), dp(9), dp(14), dp(9))
             isClickable = true
             isFocusable = true
         }
@@ -243,7 +246,7 @@ class MainActivity : Activity() {
             setTextSize(13f)
             setTextColor(getColor(R.color.chip_text))
             setBackgroundResource(R.drawable.bg_chip)
-            setPadding(dp(14), dp(7), dp(14), dp(7))
+            setPadding(dp(14), dp(9), dp(14), dp(9))
             isClickable = true
             isFocusable = true
         }
@@ -822,57 +825,44 @@ class MainActivity : Activity() {
     // ---------- 同步（主机/客户端） ----------
 
     private fun toggleHost() {
-        if (syncServer != null) {
-            stopHost()
-            return
-        }
-        val server = SyncServer(this, db, SYNC_PORT)
-        try {
-            server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false)
-            syncServer = server
-            updateHostUi(true)
+        if (HostRuntime.isRunning) {
+            stopService(Intent(this, SyncHostService::class.java))
+            toast("主机已关闭")
+            updateHostUi(false) // 服务 onDestroy 异步清状态，先按关闭显示，onResume 会再对账
+        } else {
+            // Android 13+ 先请求通知权限（拒绝也不影响服务运行，只是通知不显示）
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+            }
+            val pin = (1000..9999).random().toString()
+            HostRuntime.pin = pin
+            val intent = Intent(this, SyncHostService::class.java).putExtra("pin", pin)
+            ContextCompat.startForegroundService(this, intent)
             toast("主机已开启，让另一台设备扫码连接")
-        } catch (e: Exception) {
-            toast("启动主机失败：${e.message}")
+            updateHostUi(true) // 服务 onStartCommand 异步启动，先按开启显示，onResume 会再对账
         }
     }
 
-    private fun stopHost() {
-        syncServer?.stop()
-        syncServer = null
-        updateHostUi(false)
-    }
-
-    private fun updateHostUi(on: Boolean) {
+    /** 依据 HostRuntime（前台服务实际状态）刷新同步页主机区块；force 用于开关瞬间的即时反馈 */
+    private fun updateHostUi(force: Boolean? = null) {
+        val on = force ?: HostRuntime.isRunning
+        btnHostToggle.text = getString(if (on) R.string.sync_host_stop else R.string.sync_host_start)
         if (on) {
-            btnHostToggle.text = getString(R.string.sync_host_stop)
-            val ip = localIp() ?: "未知IP"
-            val pin = syncServer?.pin ?: ""
-            hostInfoText.text = "地址：http://$ip:$SYNC_PORT\nPIN：$pin"
-            val qrContent = "findit://sync?host=$ip&port=$SYNC_PORT&pin=$pin"
+            val ip = HostRuntime.localIp(this) ?: "未知IP"
+            val pin = HostRuntime.pin
+            hostInfoText.text = "地址：http://$ip:${HostRuntime.port}\nPIN：$pin"
+            val qrContent = "findit://sync?host=$ip&port=${HostRuntime.port}&pin=$pin"
             val bmp = QrUtils.generate(qrContent, 512)
             if (bmp != null) {
                 qrImage.setImageBitmap(bmp)
                 qrImage.visibility = View.VISIBLE
             }
         } else {
-            btnHostToggle.text = getString(R.string.sync_host_start)
             hostInfoText.text = getString(R.string.sync_host_off)
             qrImage.setImageDrawable(null)
             qrImage.visibility = View.GONE
-        }
-    }
-
-    private fun localIp(): String? {
-        return try {
-            val wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
-            val ip = wm.connectionInfo.ipAddress
-            if (ip == 0) null else String.format(
-                Locale.US, "%d.%d.%d.%d",
-                ip and 0xff, (ip shr 8) and 0xff, (ip shr 16) and 0xff, (ip shr 24) and 0xff
-            )
-        } catch (e: Exception) {
-            null
         }
     }
 
