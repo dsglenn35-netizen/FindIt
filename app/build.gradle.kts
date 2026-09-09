@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
 }
 
-// 版本号唯一来源：APK 产物命名为 findit-<版本号>.apk
+// 版本号唯一来源：APK 产物命名为 FindIt-<版本号>.apk
 val appVersionName = "2.2"
 
 // 签名配置从 keystore.properties 读取（该文件已被 .gitignore 忽略，不进仓库）
@@ -30,11 +30,11 @@ android {
         versionName = appVersionName
     }
 
-    // 所有变体的 APK 文件名统一为 findit-<版本号>.apk
+    // 所有变体的 APK 文件名统一为 FindIt-<版本号>.apk
     // （本地产物、CI artifact、GitHub Release 资产同名）
     applicationVariants.all {
         outputs.all {
-            (this as BaseVariantOutputImpl).outputFileName = "findit-${appVersionName}.apk"
+            (this as BaseVariantOutputImpl).outputFileName = "FindIt-${appVersionName}.apk"
         }
     }
 
