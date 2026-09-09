@@ -246,6 +246,7 @@
                 android:orientation="horizontal" />
         </HorizontalScrollView>
 
+        <!-- 照片操作：预览 + 拍照 + 图库 + 移除预览 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -262,38 +263,60 @@
                 android:scaleType="centerCrop"
                 android:visibility="gone" />
 
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
             <Button
                 android:id="@+id/btnCamera"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:background="@drawable/bg_button_secondary"
                 android:minWidth="0dp"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
                 android:text="@string/btn_camera"
                 android:textAllCaps="false"
                 android:textColor="@color/primary"
                 android:textSize="14sp" />
 
             <Button
-                android:id="@+id/btnSave"
+                android:id="@+id/btnGallery"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:background="@drawable/bg_button_primary"
+                android:background="@drawable/bg_button_secondary"
                 android:minWidth="0dp"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:text="@string/btn_save"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="@string/btn_gallery"
                 android:textAllCaps="false"
-                android:textColor="@color/text_on_primary"
+                android:textColor="@color/primary"
                 android:textSize="14sp" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:id="@+id/btnRemovePreview"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/photo_remove_hint"
+                android:src="@drawable/ic_delete"
+                android:visibility="gone" />
         </LinearLayout>
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_button_primary"
+            android:minWidth="0dp"
+            android:text="@string/btn_save"
+            android:textAllCaps="false"
+            android:textColor="@color/text_on_primary"
+            android:textSize="14sp" />
     </LinearLayout>
 
     <!-- 最近 / 分组 列表 -->

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -96,6 +97,11 @@ class MainActivity : Activity() {
     private var pendingPhotoFile: File? = null
     private var editingId: Long? = null
     private var editPhotoView: ImageView? = null
+    private var editDeleteBtn: Button? = null
+    private var editingNewPhoto: String? = null // 编辑对话框内新拍/新选的照片（点保存才落库）
+    private var editingRemovePhoto = false // 编辑对话框标记：删除原照片
+    private var pendingAfterPermission: (() -> Unit)? = null
+    private lateinit var btnRemovePreview: ImageButton
     private var voiceTarget: EditText? = null
     private var previewingThumb: Bitmap? = null
 
@@ -117,6 +123,8 @@ class MainActivity : Activity() {
         private const val REQ_SPEECH = 1002
         private const val REQ_IMPORT = 1003
         private const val REQ_NOTIF = 1004
+        private const val REQ_GALLERY = 1005
+        private const val REQ_CAMERA_PERM = 1006
         private const val AUTHORITY = "com.home.findit.fileprovider"
         private const val SYNC_PORT = 8888
     }
@@ -151,12 +159,19 @@ class MainActivity : Activity() {
         syncStatusText = findViewById(R.id.syncStatusText)
 
         findViewById<Button>(R.id.btnCamera).setOnClickListener { startCamera() }
+        findViewById<Button>(R.id.btnGallery).setOnClickListener { startGallery() }
         findViewById<Button>(R.id.btnSave).setOnClickListener { onSave() }
         findViewById<ImageButton>(R.id.micName).setOnClickListener { startVoice(nameInput) }
         findViewById<ImageButton>(R.id.micLoc).setOnClickListener { startVoice(locationInput) }
         findViewById<ImageButton>(R.id.btnMenu).setOnClickListener { showMenu(it) }
 
         photoPreview.setOnClickListener { startCamera() }
+        btnRemovePreview = findViewById(R.id.btnRemovePreview)
+        btnRemovePreview.setOnClickListener { clearPendingPhoto() }
+
+        // 相机权限：首次打开即请求一次（zxing 扫码库把 CAMERA 权限带进了 manifest，
+        // 不动态授权则拍照/扫码在 Android 6+ 上不可用，只能去设置里手动开）
+        requestCameraIfFirstOpen()
 
         tabRecent.setOnClickListener { setTab(Tab.RECENT) }
         tabGroup.setOnClickListener { setTab(Tab.GROUP) }
@@ -517,11 +532,49 @@ class MainActivity : Activity() {
         previewingThumb = null
         photoPreview.setImageDrawable(null)
         photoPreview.visibility = View.GONE
+        btnRemovePreview.visibility = View.GONE
     }
 
-    // ---------- 拍照 ----------
+    // ---------- 相机权限 ----------
 
-    private fun startCamera() {
+    private fun requestCameraIfFirstOpen() {
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) return
+        val prefs = getSharedPreferences("ui_prefs", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("camera_perm_asked", false)) return
+        prefs.edit().putBoolean("camera_perm_asked", true).apply()
+        requestPermissions(arrayOf(android.Manifest.permission.CAMERA), REQ_CAMERA_PERM)
+    }
+
+    /** 拍照/扫码前确保相机权限；未授权先弹系统请求，授权后自动继续原操作 */
+    private fun ensureCameraPermission(then: () -> Unit) {
+        if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            then()
+        } else {
+            pendingAfterPermission = then
+            requestPermissions(arrayOf(android.Manifest.permission.CAMERA), REQ_CAMERA_PERM)
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_CAMERA_PERM) {
+            val ok = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            if (ok) {
+                pendingAfterPermission?.invoke()
+            } else if (pendingAfterPermission != null) {
+                toast("需要相机权限才能拍照/扫码，可在系统设置中开启")
+            }
+            pendingAfterPermission = null
+        }
+    }
+
+    // ---------- 拍照 / 图库 ----------
+
+    private fun startCamera() = ensureCameraPermission { launchCamera() }
+
+    private fun launchCamera() {
         try {
             pendingPhotoFile?.delete()
             val file = File(cacheDir, "cam_${System.currentTimeMillis()}.jpg")
@@ -535,6 +588,19 @@ class MainActivity : Activity() {
             startActivityForResult(intent, REQ_CAMERA)
         } catch (e: Exception) {
             toast("无法打开相机：${e.message}")
+        }
+    }
+
+    /** 从系统图库选图（系统选择器，无需存储权限） */
+    private fun startGallery() {
+        try {
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+            startActivityForResult(Intent.createChooser(intent, "从图库选择照片"), REQ_GALLERY)
+        } catch (e: Exception) {
+            toast("无法打开图库：${e.message}")
         }
     }
 
@@ -758,22 +824,42 @@ class MainActivity : Activity() {
 
     private fun openEditDialog(item: Item) {
         editingId = item.id
+        editingNewPhoto = null
+        editingRemovePhoto = false
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_edit, null)
         val name = view.findViewById<EditText>(R.id.dlgName)
         val loc = view.findViewById<EditText>(R.id.dlgLocation)
         val photo = view.findViewById<ImageView>(R.id.dlgPhoto)
         val retake = view.findViewById<Button>(R.id.dlgRetake)
+        val gallery = view.findViewById<Button>(R.id.dlgGallery)
+        val deletePhoto = view.findViewById<Button>(R.id.dlgDeletePhoto)
         val history = view.findViewById<TextView>(R.id.dlgHistory)
         editPhotoView = photo
+        editDeleteBtn = deletePhoto
 
         name.setText(item.name)
         loc.setText(item.location)
-        val photoFile = PhotoFiles.resolve(this, item.photo)
-        if (photoFile != null && photoFile.exists()) {
-            photo.setImageBitmap(PhotoUtils.loadThumb(photoFile.absolutePath, 128))
-        } else {
-            photo.setImageResource(R.drawable.ic_placeholder)
+        val originalPhoto = item.photo
+
+        // 对话框内"当前将保存的照片"：原照片 / 新拍新选 / 已删除，随操作刷新预览
+        fun refreshDialogPhoto() {
+            val cur: String? = when {
+                editingRemovePhoto -> null
+                editingNewPhoto != null -> editingNewPhoto
+                else -> originalPhoto
+            }
+            val f = PhotoFiles.resolve(this, cur)
+            if (cur != null && f != null && f.exists()) {
+                val bmp = PhotoUtils.loadThumb(f.absolutePath, 128)
+                if (bmp != null) photo.setImageBitmap(bmp) else photo.setImageResource(R.drawable.ic_placeholder)
+            } else {
+                photo.setImageResource(R.drawable.ic_placeholder)
+            }
+            deletePhoto.visibility = if (cur != null) View.VISIBLE else View.GONE
         }
+        refreshDialogPhoto()
+        // 有照片才是"重拍"，无照片显示"拍照"
+        retake.text = getString(if (originalPhoto == null) R.string.btn_camera else R.string.btn_retake)
 
         val moves = db.getMoves(item.id)
         if (moves.isNotEmpty()) {
@@ -786,6 +872,7 @@ class MainActivity : Activity() {
             history.visibility = View.VISIBLE
         }
 
+        var applied = false
         val dialog = AlertDialog.Builder(this)
             .setTitle("编辑记录")
             .setView(view)
@@ -795,8 +882,18 @@ class MainActivity : Activity() {
                 if (n.isEmpty()) {
                     toast("物品名称不能为空")
                 } else {
+                    val finalPhoto: String? = when {
+                        editingRemovePhoto -> null
+                        editingNewPhoto != null -> editingNewPhoto
+                        else -> originalPhoto
+                    }
                     if (l != item.location) db.addMove(item.id, l)
-                    db.update(item.id, n, l, item.photo)
+                    db.update(item.id, n, l, finalPhoto)
+                    // 照片被替换/删除时清掉旧文件
+                    if (originalPhoto != null && finalPhoto != originalPhoto) {
+                        PhotoFiles.resolve(this, originalPhoto)?.delete()
+                    }
+                    applied = true
                     refresh()
                     toast("已保存")
                 }
@@ -805,7 +902,25 @@ class MainActivity : Activity() {
             .create()
 
         retake.setOnClickListener { startCamera() }
-        dialog.setOnDismissListener { editingId = null }
+        gallery.setOnClickListener { startGallery() }
+        deletePhoto.setOnClickListener {
+            // 先清掉本次新拍/新选（未落库）的文件，再标记删除原照片
+            editingNewPhoto?.let { PhotoFiles.resolve(this, it)?.delete() }
+            editingNewPhoto = null
+            editingRemovePhoto = true
+            refreshDialogPhoto()
+        }
+        dialog.setOnDismissListener {
+            // 取消关闭：丢弃暂存的新照片文件，避免产生孤儿文件
+            if (!applied) {
+                editingNewPhoto?.let { PhotoFiles.resolve(this, it)?.delete() }
+            }
+            editingId = null
+            editingNewPhoto = null
+            editingRemovePhoto = false
+            editPhotoView = null
+            editDeleteBtn = null
+        }
         dialog.show()
     }
 
@@ -866,7 +981,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun scanQr() {
+    private fun scanQr() = ensureCameraPermission {
         try {
             IntentIntegrator(this).initiateScan()
         } catch (e: Exception) {
@@ -940,6 +1055,7 @@ class MainActivity : Activity() {
 
         when (requestCode) {
             REQ_CAMERA -> handleCameraResult(resultCode, data)
+            REQ_GALLERY -> handleGalleryResult(resultCode, data)
             REQ_SPEECH -> handleSpeechResult(resultCode, data)
             REQ_IMPORT -> if (resultCode == RESULT_OK && data?.data != null) onImportPicked(data.data!!)
         }
@@ -968,28 +1084,67 @@ class MainActivity : Activity() {
                 else -> saveThumbBitmap(data)
             }
             if (saved != null) {
-                val editing = editingId
-                if (editing != null) {
-                    val item = items.firstOrNull { it.id == editing }
-                    if (item != null) {
-                        db.update(item.id, item.name, item.location, saved)
-                        PhotoFiles.resolve(this, item.photo)?.delete()
-                        editPhotoView?.setImageBitmap(PhotoUtils.loadThumb(
-                            PhotoFiles.resolve(this, saved)?.absolutePath ?: "", 128))
-                        refresh()
-                        toast("照片已更新")
-                    }
-                } else {
+                // 编辑对话框内重拍：先暂存，点「保存」才落库，避免对话框保存覆盖丢照片
+                if (editingId != null) onEditPhotoPicked(saved)
+                else {
                     pendingPhotoPath = saved
                     showPreview(saved)
                 }
             } else {
                 toast("照片保存失败")
             }
-        } else {
+        } else if (editingId == null) {
             toast("已取消拍照")
         }
         pendingPhotoFile = null
+    }
+
+    /** 编辑对话框：新照片就绪（拍照/图库返回），暂存并刷新对话框内预览 */
+    private fun onEditPhotoPicked(saved: String) {
+        editingNewPhoto = saved
+        editingRemovePhoto = false
+        val f = PhotoFiles.resolve(this, saved)
+        val bmp = if (f != null) PhotoUtils.loadThumb(f.absolutePath, 128) else null
+        editPhotoView?.let { v ->
+            if (bmp != null) v.setImageBitmap(bmp) else v.setImageResource(R.drawable.ic_placeholder)
+        }
+        editDeleteBtn?.visibility = View.VISIBLE
+    }
+
+    private fun handleGalleryResult(resultCode: Int, data: Intent?) {
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) {
+            if (editingId == null) toast("已取消选择")
+            return
+        }
+        val saved = importPhoto(uri)
+        if (saved == null) {
+            toast("照片保存失败")
+            return
+        }
+        if (editingId != null) onEditPhotoPicked(saved)
+        else {
+            pendingPhotoPath = saved
+            showPreview(saved)
+        }
+    }
+
+    /** 把系统图库的 content Uri 拷入应用照片目录，返回文件名 */
+    private fun importPhoto(uri: Uri): String? {
+        return try {
+            val dir = File(filesDir, "photos").apply { mkdirs() }
+            val dest = File(dir, "photo_${System.currentTimeMillis()}.jpg")
+            val copied = contentResolver.openInputStream(uri)?.use { input ->
+                dest.outputStream().use { out -> input.copyTo(out) }
+            } ?: return null
+            if (copied <= 0) {
+                dest.delete()
+                return null
+            }
+            dest.name
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private fun copyToPhotos(src: File): String? {
@@ -1025,6 +1180,7 @@ class MainActivity : Activity() {
         previewingThumb = if (file != null) PhotoUtils.loadThumb(file.absolutePath, 128) else null
         previewingThumb?.let { photoPreview.setImageBitmap(it) }
         photoPreview.visibility = View.VISIBLE
+        btnRemovePreview.visibility = View.VISIBLE
     }
 
     // ---------- 工具 ----------
