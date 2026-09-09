@@ -1,3 +1,4 @@
+import com.android.build.gradle.internal.api.BaseVariantOutputImpl
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -5,6 +6,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
 }
+
+// 版本号唯一来源：APK 产物命名为 findit-<版本号>.apk
+val appVersionName = "2.2"
 
 // 签名配置从 keystore.properties 读取（该文件已被 .gitignore 忽略，不进仓库）
 // 没有该文件时 release 退回 debug 签名，保证任何人 clone 后都能直接构建
@@ -23,7 +27,15 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 5
-        versionName = "2.2"
+        versionName = appVersionName
+    }
+
+    // 所有变体的 APK 文件名统一为 findit-<版本号>.apk
+    // （本地产物、CI artifact、GitHub Release 资产同名）
+    applicationVariants.all {
+        outputs.all {
+            (this as BaseVariantOutputImpl).outputFileName = "findit-${appVersionName}.apk"
+        }
     }
 
     signingConfigs {
